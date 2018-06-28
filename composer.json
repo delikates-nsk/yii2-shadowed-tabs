@@ -1,0 +1,23 @@
+{
+    "name": "delikates-nsk/yii2-shadowed-tabs",
+    "description": "A tabs widget for Yii Framework 2",
+    "keywords": ["yii2", "extension", "widget", "tabs"],
+    "homepage": "https://github.com/delikates-nsk/yii2-shadowed-tabs",
+    "type": "yii2-extension",
+    "license": "BSD-3-Clause",
+    "authors": [
+        {
+            "name": "Constantin G. Nekhoroshkov",
+            "email": "delikates.nsk@gmail.com"
+        }
+    ],
+    "minimum-stability": "dev",
+    "require": {
+        "yiisoft/yii2": "2.*"
+    },
+    "autoload": {
+        "psr-4": {
+            "delikatesnsk\\shadowedtabs\\": ""
+        }
+    }
+}
