@@ -6,7 +6,6 @@ use delikatesnsk\shadowedtabs\ShadowedTabsAsset;
  * @var $this \yii\web\View
  * @var $widget delikatesnsk\shadowedtabs\ShadowedTabsWidget
  * @var $tabsHtmlData string
- * @var $ajaxParamsStr string
  * @var $tabsContentHtmlData string
  */
 
@@ -346,10 +345,20 @@ $js .="
     });
 ";
 
-//если ajax-загрузка вкладок, то вызываем клик на вкладке с классом active
+$clickOnActiveTab = is_array( $widget->ajax );
+if ( !$clickOnActiveTab && is_array( $widget->tabs ) && count( $widget->tabs ) > 0 ) {
+    foreach( $widget->tabs as $tab ) {
+        if ( isset( $tab['selected'] ) && $tab['selected'] && is_array( $tab['ajax'] ) ) {
+            $clickOnActiveTab = true;
+            break;
+        }
+    }
+}
+if ( $clickOnActiveTab ) {
+    $js .= "$('".$id." .tabbed li.active').click();";
+}
 
 $js .= "
 });
 ";
-//var_dump( $js );
 $this->registerJs( $js );
