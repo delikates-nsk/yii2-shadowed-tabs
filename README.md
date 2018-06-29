@@ -37,6 +37,8 @@ $ php composer.phar update
 
 ```php
 
+<?php
+
 use delikatesnsk\shadowedtabs\ShadowedTabsWidget;
 
 echo ShadowedTabsWidget::widget([
