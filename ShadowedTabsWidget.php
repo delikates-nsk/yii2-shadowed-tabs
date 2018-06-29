@@ -38,7 +38,7 @@ class ShadowedTabsWidget extends \yii\base\Widget
     //    }
     // ]
 
-    //params for ajax-request to download selected tab content
+    //params for ajax-request to download selected tab content, it's global params for all tabs
     public $ajax = null;
     // [
     //      'url' => '', //url for ajax request
@@ -50,7 +50,7 @@ class ShadowedTabsWidget extends \yii\base\Widget
     //                     'param3' => 'value1',
     //                     'tab_id' => '%tabId' // <-- %tabId will be replaced to id of selected tab,
     //                                          // you can change 'tab_id' key to any other, default key is 'id'
-    //                  ]
+    //                  ],
     //      'before' => '', //javascript callback function that will be runned before send ajax-request
     //                  function(tab) {
     //                      console.log( tab.id );
@@ -79,6 +79,7 @@ class ShadowedTabsWidget extends \yii\base\Widget
     //      'label' => '', //tab label
     //      'selected' => true|false, //when true, tab will be selected. Only one tab can be selected! By default first tab is selected always.
     //      'content' => '', //content that will be shown when you select a tab
+    //      'ajax' => '', //params for ajax-request to download selected tab content (see global $ajax params), attention! overwrite global $ajax params!
     //  ],
     //  [
     //      ...
@@ -95,7 +96,55 @@ class ShadowedTabsWidget extends \yii\base\Widget
 
     private $renderedTabsData = '';
     private $renderedTabsContentData = '';
-    private $ajaxParamsStr = '';
+
+    //Only one tab will ...marked as selected
+    private function markOneTabAsSelected() {
+        if ( is_array( $this->tabs ) && count( $this->tabs ) > 0 ) {
+            $exist = false;
+            for( $i = 0; $i < count( $this->tabs ); $i++ ) {
+                if ( isset( $this->tabs[$i]['selected'] ) && $this->tabs[$i]['selected'] ) {
+                    if ( $exist ) {
+                        $this->tabs[$i]['selected'] = false;
+                    } else { $exist =  true; }
+                }
+                if ( !isset( $this->tabs[$i]['id'] ) || trim( $this->tabs[$i]['id'] ) == '' ) {
+                    $this->tabs[$i]['id'] = 'tab'.$i;
+                }
+                if ( isset( $this->tabs[$i]['ajax'] ) && is_array( $this->tabs[$i]['ajax'] ) && isset( $this->tabs[$i]['ajax']['url'] ) && trim( $this->tabs[$i]['ajax']['url'] ) != '' ) {
+                    if ( !isset( $this->tabs[$i]['ajax']['method'] ) || ( $this->tabs[$i]['ajax']['method'] != 'post' || $this->tabs[$i]['ajax']['method'] != 'get' ) ) {
+                        $this->tabs[$i]['ajax']['method'] = 'post';
+                    }
+                    if ( !isset( $this->tabs[$i]['ajax']['showIndicator'] ) || !is_bool( $this->tabs[$i]['ajax']['showIndicator'] ) ) {
+                        $this->tabs[$i]['ajax']['showIndicator'] = true;
+                    }
+                    if ( isset( $this->tabs[$i]['ajax']['params'] ) && count( $this->tabs[$i]['ajax']['params'] ) > 0 ) {
+                        $tabId = '';
+                        $this->tabs[$i]['ajax']['ajaxParamsStr'] = '';
+                        foreach( $this->tabs[$i]['ajax']['params'] as $key => $value ) {
+                            $this->tabs[$i]['ajax']['ajaxParamsStr'] .= ( $this->tabs[$i]['ajax']['ajaxParamsStr'] != '' ? '&' : '' );
+                            if ( $value != "%tabId" ) {
+                                $this->tabs[$i]['ajax']['ajaxParamsStr'] .= $key.'='.$value;
+                            } else {
+                                $tabId = $key;
+                            }
+                        }
+                        $this->tabs[$i]['ajax']['ajaxParamsStr'] .= ( $tabId != '' ? $tabId : 'id' ).'=';
+                    }
+                    if ( isset( $this->tabs[$i]['ajax']['before'] ) && !$this->isFunction( $this->tabs[$i]['ajax']['before'] ) ) {
+                        unset( $this->tabs[$i]['ajax']['before'] );
+                    }
+                    if ( isset( $this->tabs[$i]['ajax']['after'] ) && !$this->isFunction( $this->tabs[$i]['ajax']['after'] ) ) {
+                        unset( $this->tabs[$i]['ajax']['after'] );
+                    }
+
+                } else { $this->tabs[$i]['ajax'] = null; }
+
+            }
+            if ( !$exist ) {
+                $this->tabs[0]['selected'] = true;
+            }
+        }
+    }
 
     private function renderTabs() {
         $this->renderedTabsData = "
@@ -110,9 +159,11 @@ class ShadowedTabsWidget extends \yii\base\Widget
                     <div class=\"overflow-hide\">
                         <div class=\"slide-window\">
                             <ul>";
-        foreach( $this->tabs as $tabIndex => $tab ) {
+
+        for( $tabIndex = count( $this->tabs ) - 1; $tabIndex >=0; $tabIndex-- ) {
+            $tab = $this->tabs[ $tabIndex ];
             $this->renderedTabsData .= "
-                                <li data-id=\"".( isset( $tab['id'] ) ? $tab['id'] : "tab".$tabIndex )."\"><span>".( isset( $tab['label'] ) ? $tab['label'] : "&nbsp;" )."</span></li>
+                                <li data-id=\"".$tab['id']."\"".( isset( $tab['selected'] ) && $tab['selected'] ? " class=\"active\"" : "" )."><span>".( isset( $tab['label'] ) ? $tab['label'] : "&nbsp;" )."</span></li>
                                 ";
         }
         $this->renderedTabsData .="
@@ -125,8 +176,8 @@ class ShadowedTabsWidget extends \yii\base\Widget
 
     private function renderTabsContent() {
         foreach( $this->tabs as $tabIndex => $tab ) {
-            $this->renderedTabsData .= "
-                    <div class=\"tab-content ".( isset( $tab['id'] ) ? $tab['id'] : "tab".$tabIndex )." hide\">
+            $this->renderedTabsContentData .= "
+                    <div class=\"tab-content ".$tab['id'].( !isset( $tab['selected'] ) || !$tab['selected'] ? " hide" : "" )."\">
                     ".( isset( $tab['content'] ) ? $tab['content'] : '' )."
                     </div>
                                 ";
@@ -172,16 +223,16 @@ class ShadowedTabsWidget extends \yii\base\Widget
             }
             if ( isset( $this->ajax['params'] ) &&  count( $this->ajax['params'] ) > 0 ) {
                 $tabId = '';
-                $this->ajaxParamsStr = '';
+                $this->ajax['ajaxParamsStr'] = '';
                 foreach( $this->ajax['params'] as $key => $value ) {
-                    $this->ajaxParamsStr .= ( $this->ajaxParamsStr != '' ? '&' : '' );
-                    if ( $value != "%tabId " ) {
-                        $this->ajaxParamsStr .= $key.'='.$value;
+                    $this->ajax['ajaxParamsStr'] .= ( $this->ajax['ajaxParamsStr'] != '' ? '&' : '' );
+                    if ( $value != "%tabId" ) {
+                        $this->ajax['ajaxParamsStr'] .= $key.'='.$value;
                     } else {
                         $tabId = $key;
                     }
                 }
-                $this->ajaxParamsStr .= ( $tabId != '' ? $tabId : 'id' ).'=';
+                $this->ajax['ajaxParamsStr'] .= ( $tabId != '' ? $tabId : 'id' ).'=';
             }
             if ( isset( $this->ajax['before'] ) && !$this->isFunction( $this->ajax['before'] ) ) {
                 unset( $this->ajax['before'] );
@@ -197,6 +248,7 @@ class ShadowedTabsWidget extends \yii\base\Widget
     {
         parent::init();
         $this->initialize();
+        $this->markOneTabAsSelected();
         $this->renderTabs();
         $this->renderTabsContent();
     }
@@ -206,7 +258,6 @@ class ShadowedTabsWidget extends \yii\base\Widget
         return $this->render('view', [
             'tabsHtmlData' => $this->renderedTabsData,
             'tabsContentHtmlData' => $this->renderedTabsContentData,
-            'ajaxParamsStr' => $this->ajaxParamStr,
         ] );
     }
 }
