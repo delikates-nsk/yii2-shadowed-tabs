@@ -196,6 +196,9 @@ class ShadowedTabsWidget extends \yii\base\Widget
     }
 
     private function initialize() {
+        if ( !isset( $this->id ) || $this->id == "" ) {
+            $this->id = 'tabs_'.time();
+        }
         if ( !in_array( $this->skin, $this->availableSkins ) ) {
             $this->skin = $this->availableSkins[0];
         }
